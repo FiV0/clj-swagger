@@ -1,13 +1,29 @@
 {:paths ["src" "resources"]
 
  :deps
- {org.clojure/clojure {:mvn/version "1.12.0"}}
+ {
+  org.clojure/clojure                 {:mvn/version "1.12.0"}
+  org.clojure/tools.logging           {:mvn/version "1.3.0"}
+  metosin/reitit                      {:mvn/version "0.7.2"}
+  metosin/muuntaja                    {:mvn/version "0.6.10"}
+  com.cognitect/transit-clj           {:mvn/version "1.0.329"}
+
+  ring/ring-core                      {:mvn/version "1.10.0"}
+  info.sunng/ring-jetty9-adapter      {:mvn/version "0.22.4"}
+  org.eclipse.jetty/jetty-alpn-server {:mvn/version "10.0.15"}
+
+  integrant/integrant                 {:mvn/version "0.13.1"}
+  ch.qos.logback/logback-classic,     {:mvn/version "1.4.5"}}
 
  :aliases
  {:dev
   {:extra-paths ["dev"]
    :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.5.0"}
-                 com.lambdaisland/classpath {:mvn/version "0.5.48"}}}
+                 com.lambdaisland/classpath {:mvn/version "0.5.48"}
+                 hato/hato {:mvn/version "1.0.0"}
+                 ;; hato uses cheshire for JSON serialization
+                 cheshire/cheshire {:mvn/version "5.13.0"}
+                 integrant/repl {:mvn/version "0.4.0"}}}
 
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
