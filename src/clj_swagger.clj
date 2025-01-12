@@ -84,7 +84,10 @@
   {:muuntaja (m/create muuntaja-opts)
    :get {:handler (swagger-ui/create-swagger-ui-handler)}})
 
-
+(defn- default-handler [^Throwable t _]
+  {:status 500, :body {:class (.getName (.getClass t))
+                       :message (.getMessage t)
+                       :stringified (.toString t)} })
 
 (def router
   (let [m (m/create muuntaja-opts)]
@@ -102,9 +105,11 @@
 
                                         [ri.exception/exception-interceptor
                                          (merge ri.exception/default-handlers
-                                                ;; other special handlers
-                                                {})]
-
+                                                {::ri.exception/default default-handler
+                                                 ::ri.exception/wrap
+                                                 (fn [handler e req]
+                                                   (log/debug e (format "response error (%s): '%s'" (class e) (ex-message e)))
+                                                   (m/format-response m req (handler e req)))})]
 
                                         [ri.muuntaja/format-response-interceptor]
                                         [ri.muuntaja/format-request-interceptor]
