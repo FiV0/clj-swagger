@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [clojure.tools.namespace.repl :as repl]
             [lambdaisland.classpath.watch-deps :as watch-deps]
-            [integrant.repl :as ir]))
+            [integrant.repl :as ir]
+            [clj-swagger]))
 
 (defn watch-deps!
   []
