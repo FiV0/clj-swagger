@@ -39,6 +39,10 @@
                        :summary "Get request with parameter"
                        :description "A GET request with path and query parameters"}]
 
+   ["/hello-mcp" {:name :hello-mcp
+                  :summary "Hello MCP"
+                  :description "A greeting endpoint for MCP"}]
+
    ["/swagger.json" {:name :swagger-json
                      :no-doc true}]
 
@@ -79,6 +83,11 @@
 (defmethod route-handler :swagger-json [_]
   {:muuntaja (m/create muuntaja-opts)
    :get {:handler (r.swagger/create-swagger-handler)}})
+
+(defmethod route-handler :hello-mcp [_]
+  {:muuntaja (m/create muuntaja-opts)
+   :get {:handler (fn [{:as _req}]
+                    {:status 200, :body {:message "Hello from MCP!"}})}})
 
 (defmethod route-handler :swagger-ui[_]
   {:muuntaja (m/create muuntaja-opts)
