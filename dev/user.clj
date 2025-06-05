@@ -5,36 +5,38 @@
             [integrant.repl :as ir]
             [clj-swagger]))
 
-(defn watch-deps!
-  []
+(defn watch-deps! []
   (watch-deps/start! {:aliases [:dev :test]}))
-
-(defn go []
-  (watch-deps!))
 
 (comment
   (repl/set-refresh-dirs (io/file "src") (io/file "dev"))
   (repl/refresh)
   (repl/clear)
-
-  (watch-deps!)
-
-  )
-
+  (watch-deps!))
 
 (def config {:clj-swagger/server {:port 8080}})
 
 (ir/set-prep! (fn [] config))
 
-(def halt ir/halt)
-(def reset ir/reset)
+(defn init
+  "Start the server"
+  []
+  (watch-deps!)
+  (ir/prep)
+  (ir/init))
+
+(defn stop
+  "Stop the server"
+  []
+  (ir/halt))
+
+(defn reset
+  "Restart the server"
+  []
+  (stop)
+  (ir/go))
 
 (comment
-  (ir/prep)
-  (ir/init)
-  (do
-    (ir/halt)
-    (ir/go)
-    )
-
-  )
+  (init)
+  (reset)
+  (stop))
