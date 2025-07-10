@@ -14,7 +14,7 @@
   (repl/clear)
   (watch-deps!))
 
-(def config {:clj-swagger/server {:port 8081}})
+(def config {:clj-swagger/server {:port 8081 :dev-mode? true}})
 
 (ir/set-prep! (fn [] config))
 

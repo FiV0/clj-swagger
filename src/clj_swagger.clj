@@ -109,6 +109,7 @@
                   :data {:muuntaja m
                          :coercion rc.spec/coercion
                          :interceptors [r.swagger/swagger-feature
+                                        openapi/openapi-feature
                                         [ri.parameters/parameters-interceptor]
                                         [ri.muuntaja/format-negotiate-interceptor]
 
@@ -124,10 +125,10 @@
                                         [ri.muuntaja/format-request-interceptor]
                                         [rh.coercion/coerce-request-interceptor]]}})))
 
-
 (defn- with-opts [opts]
   {:enter (fn [ctx]
             (update ctx :request into opts))})
+
 
 (defn handler [extra-opts]
   (http/ring-handler router
@@ -135,10 +136,13 @@
                      {:executor r.sieppari/executor
                       :interceptors [[with-opts {:extra-opts extra-opts}]]}))
 
-(defmethod ig/init-key :clj-swagger/server [_ {:keys [port] :as opts}]
-  (let [^Server server (j/run-jetty (handler opts)
-                                    (merge {:port port, :h2c? true, :h2? true}
-                                           {:async? true, :join? false}))]
+(defmethod ig/init-key :clj-swagger/server [_ {:keys [port dev-mode?] :as opts}]
+  (let [f (fn [] (handler opts))
+        ^Server server (j/run-jetty (if dev-mode?
+                                      (r.ring/reloading-ring-handler f)
+                                      (f))
+                                    {:port port, :h2c? true, :h2? true
+                                     :async? true :join? false})]
     (log/info "HTTP server started on port:" port)
     server))
 
