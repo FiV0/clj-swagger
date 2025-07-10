@@ -1,4 +1,13 @@
-# {project}
+# clj-swagger
+
+Starting a repl
+```sh
+clj -M:dev:nrepl
+```
+Starting the clojure-mcp server
+```sh
+PORT=$(cat .nrepl-port 2>/dev/null); clojure -X:mcp :port $PORT
+```
 
 Executing the program can either be done via
 ```sh
