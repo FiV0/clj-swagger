@@ -18,6 +18,7 @@
             [reitit.interceptor.sieppari :as r.sieppari]
             [reitit.ring :as r.ring]
             [reitit.swagger :as r.swagger]
+            [reitit.openapi :as openapi]
             [ring.adapter.jetty9 :as j]
             [ring.util.response :as ring-response]
             [reitit.swagger-ui :as swagger-ui])
@@ -36,10 +37,13 @@
              :description "A simple POST request"}]
 
    ["/get-with-param/:id" {:name :get-with-param
-                       :summary "Get request with parameter"
-                       :description "A GET request with path and query parameters"}]
+                           :summary "Get request with parameter"
+                           :description "A GET request with path and query parameters"}]
 
    ["/swagger.json" {:name :swagger-json
+                     :no-doc true}]
+
+   ["/openapi.json" {:name :openapi-json
                      :no-doc true}]
 
    ["/api-docs/*" {:name :swagger-ui
@@ -80,9 +84,14 @@
   {:muuntaja (m/create muuntaja-opts)
    :get {:handler (r.swagger/create-swagger-handler)}})
 
-(defmethod route-handler :swagger-ui[_]
+(defmethod route-handler :swagger-ui [_]
   {:muuntaja (m/create muuntaja-opts)
    :get {:handler (swagger-ui/create-swagger-ui-handler)}})
+
+(defmethod route-handler :openapi-json [_]
+  {:muuntaja (m/create muuntaja-opts)
+   :get {:handler (openapi/create-openapi-handler)}})
+
 
 (defn- default-handler [^Throwable t _]
   {:status 500, :body {:class (.getName (.getClass t))

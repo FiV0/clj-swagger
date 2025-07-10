@@ -13,7 +13,7 @@
   org.eclipse.jetty/jetty-alpn-server {:mvn/version "10.0.15"}
 
   integrant/integrant                 {:mvn/version "0.13.1"}
-  ch.qos.logback/logback-classic,     {:mvn/version "1.4.5"}}
+  ch.qos.logback/logback-classic      {:mvn/version "1.4.5"}}
 
  :aliases
  {:dev
