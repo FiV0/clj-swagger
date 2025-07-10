@@ -3,7 +3,7 @@
             [clojure.tools.namespace.repl :as repl]
             [lambdaisland.classpath.watch-deps :as watch-deps]
             [integrant.repl :as ir]
-            [clj-swagger]))
+            [clj-swagger.server]))
 
 (defn watch-deps! []
   (watch-deps/start! {:aliases [:dev :test]}))
@@ -14,7 +14,7 @@
   (repl/clear)
   (watch-deps!))
 
-(def config {:clj-swagger/server {:port 8081 :dev-mode? true}})
+(def config {:clj-swagger.server/server {:port 8081 :dev-mode? true}})
 
 (ir/set-prep! (fn [] config))
 

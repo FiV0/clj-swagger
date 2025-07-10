@@ -1,4 +1,4 @@
-(ns clj-swagger
+(ns clj-swagger.server
   (:require [integrant.core :as ig]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
@@ -136,7 +136,7 @@
                      {:executor r.sieppari/executor
                       :interceptors [[with-opts {:extra-opts extra-opts}]]}))
 
-(defmethod ig/init-key :clj-swagger/server [_ {:keys [port dev-mode?] :as opts}]
+(defmethod ig/init-key :clj-swagger.server/server [_ {:keys [port dev-mode?] :as opts}]
   (let [f (fn [] (handler opts))
         ^Server server (j/run-jetty (if dev-mode?
                                       (r.ring/reloading-ring-handler f)
@@ -146,6 +146,6 @@
     (log/info "HTTP server started on port:" port)
     server))
 
-(defmethod ig/halt-key! :clj-swagger/server [_ ^Server server]
+(defmethod ig/halt-key! :clj-swagger.server/server [_ ^Server server]
   (.stop server)
   (log/info "HTTP server stopped"))
