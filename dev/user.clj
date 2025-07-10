@@ -14,7 +14,11 @@
   (repl/clear)
   (watch-deps!))
 
-(def config {:clj-swagger.server/server {:port 8081 :dev-mode? true}})
+(def config {:clj-swagger.server/server {:port 8081 :dev-mode? true}
+             :clj-swagger/postgres {:dbtype "postgresql"
+                                    :dbname "clj-swagger"
+                                    :user "postgres"
+                                    :password "changethis"}})
 
 (ir/set-prep! (fn [] config))
 
