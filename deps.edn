@@ -9,6 +9,7 @@
 
   ;; server
   ring/ring-core                      {:mvn/version "1.10.0"}
+  ring/ring-mock                      {:mvn/version "0.6.1"}
   info.sunng/ring-jetty9-adapter      {:mvn/version "0.22.4"}
   org.eclipse.jetty/jetty-alpn-server {:mvn/version "10.0.15"}
   metosin/reitit                      {:mvn/version "0.7.2"}
