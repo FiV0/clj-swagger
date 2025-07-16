@@ -1,27 +1,30 @@
 (ns clj-swagger.server
-  (:require [integrant.core :as ig]
-            [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
+  (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [cognitect.transit :as transit]
+            [integrant.core :as ig]
             [jsonista.core :as json]
             [muuntaja.core :as m]
             [muuntaja.format.core :as mf]
             [reitit.coercion :as r.coercion]
             [reitit.coercion.spec :as rc.spec]
             [reitit.core :as r]
+            [reitit.dev.pretty :as pretty]
             [reitit.http :as http]
             [reitit.http.coercion :as rh.coercion]
             [reitit.http.interceptors.exception :as ri.exception]
             [reitit.http.interceptors.muuntaja :as ri.muuntaja]
             [reitit.http.interceptors.parameters :as ri.parameters]
             [reitit.interceptor.sieppari :as r.sieppari]
-            [reitit.ring :as r.ring]
-            [reitit.swagger :as r.swagger]
             [reitit.openapi :as openapi]
+            [reitit.ring :as r.ring]
+            [reitit.spec :as rs]
+            [reitit.swagger :as r.swagger]
+            [reitit.swagger-ui :as swagger-ui]
             [ring.adapter.jetty9 :as j]
             [ring.util.response :as ring-response]
-            [reitit.swagger-ui :as swagger-ui])
+            [expound.alpha :as expound])
   (:import org.eclipse.jetty.server.Server))
 
 
@@ -114,16 +117,19 @@
                                         [ri.muuntaja/format-negotiate-interceptor]
 
                                         [ri.exception/exception-interceptor
+                                         ;; TODO understand why the default coercion error pretty printer doesn't work here
                                          (merge ri.exception/default-handlers
                                                 {::ri.exception/default default-handler
                                                  ::ri.exception/wrap
                                                  (fn [handler e req]
-                                                   (log/debug e (format "response error (%s): '%s'" (class e) (ex-message e)))
+                                                   (log/error e (format "response error (%s): '%s'" (class e) (ex-message e)))
                                                    (m/format-response m req (handler e req)))})]
 
                                         [ri.muuntaja/format-response-interceptor]
                                         [ri.muuntaja/format-request-interceptor]
-                                        [rh.coercion/coerce-request-interceptor]]}})))
+                                        [rh.coercion/coerce-exceptions-interceptor]
+                                        [rh.coercion/coerce-request-interceptor]]}
+                  :validate rs/validate})))
 
 (defn- with-opts [opts]
   {:enter (fn [ctx]
