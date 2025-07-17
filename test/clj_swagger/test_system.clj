@@ -10,6 +10,7 @@
 (def test-system (atom nil))
 
 (defn system-fixture [f]
+  (ig/load-namespaces test-config)
   (reset! test-system (ig/init test-config))
   (try
     (f)

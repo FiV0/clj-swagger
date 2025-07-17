@@ -3,7 +3,7 @@
             [clojure.tools.namespace.repl :as repl]
             [lambdaisland.classpath.watch-deps :as watch-deps]
             [integrant.repl :as ir]
-            [clj-swagger.server]))
+            [integrant.core :as ig]))
 
 (defn watch-deps! []
   (watch-deps/start! {:aliases [:dev :test]}))
@@ -24,10 +24,12 @@
 
 (defn init
   "Start the server"
-  []
-  (watch-deps!)
-  (ir/prep)
-  (ir/init))
+  ([] (init config))
+  ([config]
+   (watch-deps!)
+   (ig/load-namespaces config)
+   (ir/prep)
+   (ir/init)))
 
 (defn stop
   "Stop the server"

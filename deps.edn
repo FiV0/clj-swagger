@@ -27,7 +27,7 @@
 
  :aliases
  {:dev
-  {:extra-paths ["dev"]
+  {:extra-paths ["dev" "test"]
    :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.5.0"}
                  com.lambdaisland/classpath {:mvn/version "0.5.48"}
                  hato/hato {:mvn/version "1.0.0"}
