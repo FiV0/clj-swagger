@@ -16,6 +16,8 @@
   metosin/muuntaja                    {:mvn/version "0.6.10"}
   com.cognitect/transit-clj           {:mvn/version "1.0.329"}
   metosin/jsonista                    {:mvn/version "0.3.13"}
+  buddy/buddy                         {:mvn/version "2.0.0"}
+  buddy/buddy-hashers                 {:mvn/version "2.0.167"}
 
   ;; system
   integrant/integrant                 {:mvn/version "0.13.1"}
