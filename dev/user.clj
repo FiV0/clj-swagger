@@ -3,7 +3,9 @@
             [clojure.tools.namespace.repl :as repl]
             [lambdaisland.classpath.watch-deps :as watch-deps]
             [integrant.repl :as ir]
-            [integrant.core :as ig]))
+            [integrant.core :as ig]
+            [ragtime.jdbc :as r.jdbc]
+            [ragtime.repl :as r.repl]))
 
 (defn watch-deps! []
   (watch-deps/start! {:aliases [:dev :test]}))
@@ -46,3 +48,14 @@
   (init)
   (reset)
   (stop))
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;; ragtime migration
+;;;;;;;;;;;;;;;;;;;;;;;
+
+(def ragtime-config {:datastore (r.jdbc/sql-database (:clj-swagger/postgres config))
+                     :migrations (r.jdbc/load-resources "migrations")})
+
+(comment
+  (r.repl/migrate ragtime-config)
+  (r.repl/rollback ragtime-config 1))
