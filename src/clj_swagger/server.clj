@@ -101,6 +101,13 @@
                        :message (.getMessage t)
                        :stringified (.toString t)} })
 
+(defn coercion-error-handler [status]
+  (let [printer (expound/custom-printer {:theme :figwheel-theme, :print-specs? false})
+        handler (ri.exception/create-coercion-handler status)]
+    (fn [exception request]
+      (printer (-> exception ex-data :problems))
+      (handler exception request))))
+
 (def router
   (let [m (m/create muuntaja-opts)]
     (http/router http-routes
@@ -113,22 +120,24 @@
                          :coercion rc.spec/coercion
                          :interceptors [r.swagger/swagger-feature
                                         openapi/openapi-feature
-                                        [ri.parameters/parameters-interceptor]
-                                        [ri.muuntaja/format-negotiate-interceptor]
+                                        (ri.parameters/parameters-interceptor)
+                                        (ri.muuntaja/format-negotiate-interceptor)
+                                        (ri.muuntaja/format-response-interceptor)
+                                        (ri.muuntaja/format-request-interceptor)
 
-                                        [ri.exception/exception-interceptor
-                                         ;; TODO understand why the default coercion error pretty printer doesn't work here
+                                        (ri.exception/exception-interceptor
                                          (merge ri.exception/default-handlers
-                                                {::ri.exception/default default-handler
+                                                {:reitit.coercion/request-coercion (coercion-error-handler 400)
+                                                 :reitit.coercion/response-coercion (coercion-error-handler 500)
+                                                 ::ri.exception/default default-handler
                                                  ::ri.exception/wrap
                                                  (fn [handler e req]
-                                                   (log/error e (format "response error (%s): '%s'" (class e) (ex-message e)))
-                                                   (m/format-response m req (handler e req)))})]
+                                                   (prn (:type (ex-data e))
+                                                        (handler e req))
+                                                   (log/debug e (format "response error (%s): '%s'" (class e) (ex-message e)))
+                                                   (m/format-response m req (handler e req)))}))
 
-                                        [ri.muuntaja/format-response-interceptor]
-                                        [ri.muuntaja/format-request-interceptor]
-                                        [rh.coercion/coerce-exceptions-interceptor]
-                                        [rh.coercion/coerce-request-interceptor]]}
+                                        (rh.coercion/coerce-request-interceptor)]}
                   :validate rs/validate})))
 
 (defn- with-opts [opts]
