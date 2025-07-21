@@ -1,0 +1,12 @@
+{
+  "name": "frontend",
+  "version": "0.0.1",
+  "private": true,
+  "devDependencies": {
+    "shadow-cljs": "3.1.7"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}
