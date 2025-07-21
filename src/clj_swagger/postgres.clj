@@ -1,6 +1,7 @@
 (ns clj-swagger.postgres
   (:require [clojure.java.io :as io]
             [clojure.tools.logging :as log]
+            [clj-swagger.auth :as auth]
             [integrant.core :as ig]
             [jsonista.core :as json]
             [next.jdbc :as jdbc]
@@ -54,10 +55,17 @@
   (read-column-by-index [^org.postgresql.util.PGobject v _2 _3]
     (<-pgobject v)))
 
-(defmethod ig/init-key :clj-swagger/postgres [_ opts]
+(def ^:private first-super-user-query "SELECT * FROM users WHERE is_superuser = true LIMIT 1;")
+
+(defmethod ig/init-key :clj-swagger/postgres [_ {:keys [first-admin-email first-admin-password] :as opts}]
   (log/info "Initializing Postgres connection")
   (let [conn (-> (jdbc/get-connection opts)
                  (jdbc/with-options jdbc/unqualified-snake-kebab-opts))]
+    (when-not (jdbc/execute-one! conn [first-super-user-query])
+      (log/info "No superuser found, creating one")
+      (sql/insert! conn :users {:email first-admin-email
+                                :hashed_password (auth/encrypt-pw first-admin-password)
+                                :is_superuser true}))
     conn))
 
 (defmethod ig/halt-key! :clj-swagger/postgres [_ {:keys [connectable]}]
@@ -69,4 +77,5 @@
 
   (def pg-conn (:clj-swagger/postgres state/system))
 
-  (jdbc/execute! pg-conn ["SELECT 1"]))
+  (jdbc/execute! pg-conn ["SELECT 1"])
+  (jdbc/execute-one! pg-conn [first-super-user-query]))

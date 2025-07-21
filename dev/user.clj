@@ -20,7 +20,9 @@
              :clj-swagger/postgres {:dbtype "postgresql"
                                     :dbname "clj-swagger"
                                     :user "postgres"
-                                    :password "changethis"}})
+                                    :password "changethis"
+                                    :first-admin-email "admin@example.com"
+                                    :first-admin-password "changethis"}})
 
 (ir/set-prep! (fn [] config))
 
