@@ -7,24 +7,26 @@
 (defn encrypt-pw [pw]
   (hashers/derive pw {:alg :argon2id}))
 
-(def ^:private pw-query "SELECT password_hash AS encrypted, admin, customer_id
-                         FROM users WHERE email = ?")
+(def ^:private password-query "SELECT email, is_superuser, hashed_password AS encrypted
+                               FROM users WHERE email = ?")
 
 (defn verify-pw [conn user password]
   (when password
-    (when-let [{:keys [encrypted admin customer-id] :as res} (first (jdbc/execute! conn [pw-query user]))]
+    (when-let [{:keys [encrypted is-superuser] :as _res} (jdbc/execute-one! conn [password-query user])]
       (when (:valid (hashers/verify password encrypted))
         {:email user
-         :admin admin
-         :customer-id customer-id}))))
-#_
-(comment
-  (jdbc/execute! test-data/conn ["SELECT * FROM users;"])
-  (verify-pw test-data/conn "finn@example.com" "123456"))
+         :is-superuser is-superuser}))))
 
-;; TODO move secret key to config
-(def ^:private secret "your-secret-key")
-(def ^:dynamic *exp-time* (* 60 60 3))
+(comment
+  (require '[integrant.repl.state :as state])
+  (def pg-conn (:clj-swagger/postgres state/system))
+
+  (verify-pw pg-conn "admin@example.com" "changethis")
+  (verify-pw pg-conn "admin@example.com" "garbage"))
+
+;; TODO move secret to config
+(def ^:private secret "please-change-this")
+(def ^:dynamic *exp-time* (* 60 60 3)) ;; 3 hours
 
 (defn generate-token
   ([claims] (generate-token claims *exp-time*))
