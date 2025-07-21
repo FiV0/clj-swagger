@@ -24,7 +24,7 @@
                                     :first-admin-email "admin@example.com"
                                     :first-admin-password "changethis"}})
 
-(ir/set-prep! (fn [] config))
+(ir/set-prep! #(ig/expand config))
 
 (defn init
   "Start the server"

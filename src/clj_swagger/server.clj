@@ -1,6 +1,7 @@
 (ns clj-swagger.server
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
+            [clj-swagger.auth :as auth]
             [clojure.tools.logging :as log]
             [cognitect.transit :as transit]
             [integrant.core :as ig]
@@ -24,27 +25,36 @@
             [reitit.swagger-ui :as swagger-ui]
             [ring.adapter.jetty9 :as j]
             [ring.util.response :as ring-response]
-            [expound.alpha :as expound])
-  (:import org.eclipse.jetty.server.Server))
+            [expound.alpha :as expound]
+            [next.jdbc :as jdbc]
+            [next.jdbc.sql :as sql])
+  (:import org.eclipse.jetty.server.Server
+           [clojure.lang ExceptionInfo]))
 
 
 (def ^:private muuntaja-opts m/default-options)
 
 (def http-routes
-  [["/get" {:name :get
-            :summary "Get request"
-            :description "A simple GET request"}]
+  [["v1"
+    ["/login/acces-token" {:name :login-access-token
+                           :summary "Get an access token"}]
 
-   ["/post" {:name :post
-             :summary "Post request"
-             :description "A simple POST request"}]
 
-   ["/get-with-param/:id" {:name :get-with-param
-                           :summary "Get request with parameter"
-                           :description "A GET request with path and query parameters"}]
+    ["/login/test-token" {:name :login-test-token
+                          :summary "Test an access token"}]
+
+    ["/users" {:name :users
+               :swagger {:security [{"auth" []}]}}]
+
+    #_["/get-with-param/:id" {:name :get-with-param
+                              :summary "Get request with parameter"
+                              :description "A GET request with path and query parameters"}]]
 
    ["/swagger.json" {:name :swagger-json
-                     :no-doc true}]
+                     :no-doc true
+                     :swagger {:securityDefinitions {"auth" {:type :apiKey
+                                                             :in :header
+                                                             :name "Authorization"}}}}]
 
    ["/openapi.json" {:name :openapi-json
                      :no-doc true}]
@@ -54,34 +64,80 @@
 
 (defmulti ^:private route-handler :name, :default ::default)
 
-(defmethod route-handler :get [_]
+
+(s/def ::username string?)
+(s/def ::password string?)
+
+(defmethod route-handler :login-access-token [_]
   {:muuntaja (m/create muuntaja-opts)
 
-   :get {:handler (fn [{:as _req}]
-                    {:status 200, :body {:message "Hello, world!"}})}})
+   :post {:handler (fn [{:keys [parameters conn] :as _req}]
+                     (let [{:keys [username password]} (:body parameters)]
+                       (if-let [claims (auth/verify-pw conn username password)]
+                         {:status 200, :body {:token (auth/generate-token claims)}}
+                         {:status 401, :body {:message "Authentication failed!"}})))
+          :parameters {:body (s/keys :req-un [::username ::password])}}})
 
-(s/def ::a string?)
-(s/def ::b int?)
 
-(defmethod route-handler :post [_]
+(defmethod route-handler :login-test-token [_]
   {:muuntaja (m/create muuntaja-opts)
 
-   :post {:handler (fn [{:keys [parameters] :as _req}]
-                     {:status 200, :body {:original-message (:body parameters)}})
-          :parameters {:body (s/keys :req-un [::a]
-                                     :opt-un [::b])}}})
+   :post {:handler (fn [{:keys [headers] :as _req}]
+                     (try
+                       (if-let [claims (some-> (get headers "authorization") auth/validate-token)]
+                         {:status 200 :body claims}
+                         {:status 401, :body {:message "Authentication failed!"}})
+                       (catch ExceptionInfo e
+                         (let [data (ex-data e)]
+                           (if (= :validation (:type data))
+                             (throw (ex-info (ex-message e) (assoc data ::status 419)))
+                             (throw e))))))}})
 
-(s/def ::id int?)
+(defn authenticate-interceptor [only-superuser?]
+  {:name ::authenticate
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [{:keys [headers]} request]
+              (try
+                (if-let [{:keys [is-superuser] :as claims} (some-> (get headers "authorization")
+                                                                   auth/validate-token)]
+                  (do (log/debug "User authentication" claims)
+                      (if (or (not only-superuser?) is-superuser)
+                        (update-in ctx [:request :headers] dissoc "authorization")
+                        (assoc ctx :error (ex-info "Unauthorized" {:type ::unauthorized
+                                                                   ::status 403}))))
 
-(defmethod route-handler :get-with-param [_]
+                  (assoc ctx :error (ex-info "Authentication failed" {:type ::unauthenticated
+                                                                      ::status 401})))
+                (catch ExceptionInfo e
+                  (let [data (ex-data e)]
+                    (if (= :validation (:type data))
+                      (assoc ctx :error (ex-info (ex-message e) (assoc data ::status 419)))
+                      (throw e)))))))})
+
+(s/def ::email string?)
+(s/def ::is-superuser boolean?)
+(s/def ::is-active boolean?)
+(s/def ::password string?)
+
+(defmethod route-handler :users [_]
   {:muuntaja (m/create muuntaja-opts)
 
-   :get {:parameters {:query {:q string?}
-                      :path {:id ::id}}
-         :handler (fn [{:keys [parameters] :as _req}]
-                    (log/info :req parameters)
-                    {:status 200, :body {:query-params (:query parameters)
-                                         :path-params (:path parameters)}})}})
+   :get {:interceptors [(authenticate-interceptor true)]
+         :summary "Read users"
+         :handler (fn [{:keys [conn] :as _req}]
+                    (let [data (jdbc/execute! conn ["SELECT id, email, is_superuser, is_active FROM users"])]
+                      {:status 200, :body {:data data :count (count data)}}))}
+
+   :post {:interceptors [(authenticate-interceptor true)]
+          :summary "Create user"
+          :parameters {:body (s/keys :req-un [::email ::password]
+                                     :opt-un [::is-superuser ::is-active])}
+          :handler (fn [{:keys [parameters conn] :as _req}]
+                     (let [{:keys [password] :as body} (:body parameters)]
+                       {:status 200, :body (-> (sql/insert! conn :users (-> body
+                                                                            (assoc :hashed-password (auth/encrypt-pw password))
+                                                                            (dissoc :password)))
+                                               (dissoc :hashed-password))}))}})
 
 (defmethod route-handler :swagger-json [_]
   {:muuntaja (m/create muuntaja-opts)
@@ -89,7 +145,9 @@
 
 (defmethod route-handler :swagger-ui [_]
   {:muuntaja (m/create muuntaja-opts)
-   :get {:handler (swagger-ui/create-swagger-ui-handler)}})
+   :get {:handler (swagger-ui/create-swagger-ui-handler
+                   {:config {:validatorUrl nil
+                             :persistAuthorization true}})}})
 
 (defmethod route-handler :openapi-json [_]
   {:muuntaja (m/create muuntaja-opts)
@@ -127,14 +185,14 @@
 
                                         (ri.exception/exception-interceptor
                                          (merge ri.exception/default-handlers
-                                                {:reitit.coercion/request-coercion (coercion-error-handler 400)
+                                                {:reitit.coercion/request-coercion (coercion-error-handler 422)
                                                  :reitit.coercion/response-coercion (coercion-error-handler 500)
                                                  ::ri.exception/default default-handler
                                                  ::ri.exception/wrap
                                                  (fn [handler e req]
                                                    (prn (:type (ex-data e))
                                                         (handler e req))
-                                                   (log/debug e (format "response error (%s): '%s'" (class e) (ex-message e)))
+                                                   (log/error (format "response error (%s): '%s'" (class e) (ex-message e)))
                                                    (m/format-response m req (handler e req)))}))
 
                                         (rh.coercion/coerce-request-interceptor)]}
@@ -145,11 +203,16 @@
             (update ctx :request into opts))})
 
 
-(defn handler [extra-opts]
+(defn handler [{:keys [conn] :as extra-opts}]
+  (assert conn "db-conn is missing!!")
   (http/ring-handler router
                      (r.ring/create-default-handler)
                      {:executor r.sieppari/executor
-                      :interceptors [[with-opts {:extra-opts extra-opts}]]}))
+                      :interceptors [[with-opts {:conn conn
+                                                 :extra-opts extra-opts}]]}))
+
+(defmethod ig/expand-key :clj-swagger.server/server [k opts]
+  {k (assoc opts :conn (ig/ref :clj-swagger/postgres))})
 
 (defmethod ig/init-key :clj-swagger.server/server [_ {:keys [port dev-mode?] :as opts}]
   (let [f (fn [] (handler opts))

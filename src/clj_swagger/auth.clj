@@ -7,15 +7,14 @@
 (defn encrypt-pw [pw]
   (hashers/derive pw {:alg :argon2id}))
 
-(def ^:private password-query "SELECT email, is_superuser, hashed_password AS encrypted
+(def ^:private password-query "SELECT id, email, is_superuser, is_active, hashed_password AS encrypted
                                FROM users WHERE email = ?")
 
 (defn verify-pw [conn user password]
   (when password
-    (when-let [{:keys [encrypted is-superuser] :as _res} (jdbc/execute-one! conn [password-query user])]
+    (when-let [{:keys [encrypted] :as res} (jdbc/execute-one! conn [password-query user])]
       (when (:valid (hashers/verify password encrypted))
-        {:email user
-         :is-superuser is-superuser}))))
+        (dissoc res :encrypted)))))
 
 (comment
   (require '[integrant.repl.state :as state])
