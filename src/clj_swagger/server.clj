@@ -35,7 +35,15 @@
 (def ^:private muuntaja-opts m/default-options)
 
 (def http-routes
-  [["v1"
+  [["/v1"
+    ["/get" {:name :get
+             :summary "Get request"
+             :description "A simple GET request"}]
+
+    ["/post" {:name :post
+              :summary "Post request"
+              :description "A simple POST request"}]
+
     ["/login/acces-token" {:name :login-access-token
                            :summary "Get an access token"}]
 
@@ -63,6 +71,21 @@
                    :no-doc true}]])
 
 (defmulti ^:private route-handler :name, :default ::default)
+
+(defmethod route-handler :get [_]
+  {:muuntaja (m/create muuntaja-opts)
+
+   :get {:handler (fn [{:as _req}]
+                    {:status 200, :body {:message "Hello, world!"}})}})
+
+(s/def ::message string?)
+
+(defmethod route-handler :post [_]
+  {:muuntaja (m/create muuntaja-opts)
+
+   :post {:handler (fn [{:keys [parameters] :as _req}]
+                     {:status 200, :body {:original-message (:body parameters)}})
+          :parameters {:body (s/keys :req-un [::message])}}})
 
 
 (s/def ::username string?)
@@ -204,7 +227,7 @@
 
 
 (defn handler [{:keys [conn] :as extra-opts}]
-  (assert conn "db-conn is missing!!")
+  ;; (assert conn "db-conn is missing!!")
   (http/ring-handler router
                      (r.ring/create-default-handler)
                      {:executor r.sieppari/executor

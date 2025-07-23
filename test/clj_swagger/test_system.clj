@@ -11,7 +11,7 @@
 
 (defn system-fixture [f]
   (ig/load-namespaces test-config)
-  (reset! test-system (ig/init test-config))
+  (reset! test-system (ig/init (ig/expand test-config)))
   (try
     (f)
     (finally
