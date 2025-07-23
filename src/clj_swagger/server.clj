@@ -31,7 +31,6 @@
   (:import org.eclipse.jetty.server.Server
            [clojure.lang ExceptionInfo]))
 
-
 (def ^:private muuntaja-opts m/default-options)
 
 (def http-routes
@@ -47,12 +46,14 @@
     ["/login/acces-token" {:name :login-access-token
                            :summary "Get an access token"}]
 
-
     ["/login/test-token" {:name :login-test-token
                           :summary "Test an access token"}]
 
     ["/users" {:name :users
                :swagger {:security [{"auth" []}]}}]
+
+    ["/users/me" {:name :users-me
+                  :swagger {:security [{"auth" []}]}}]
 
     #_["/get-with-param/:id" {:name :get-with-param
                               :summary "Get request with parameter"
@@ -87,7 +88,6 @@
                      {:status 200, :body {:original-message (:body parameters)}})
           :parameters {:body (s/keys :req-un [::message])}}})
 
-
 (s/def ::username string?)
 (s/def ::password string?)
 
@@ -100,7 +100,6 @@
                          {:status 200, :body {:token (auth/generate-token claims)}}
                          {:status 401, :body {:message "Authentication failed!"}})))
           :parameters {:body (s/keys :req-un [::username ::password])}}})
-
 
 (defmethod route-handler :login-test-token [_]
   {:muuntaja (m/create muuntaja-opts)
@@ -125,7 +124,9 @@
                                                                    auth/validate-token)]
                   (do (log/debug "User authentication" claims)
                       (if (or (not only-superuser?) is-superuser)
-                        (update-in ctx [:request :headers] dissoc "authorization")
+                        (-> ctx
+                            (update-in [:request :headers] dissoc "authorization")
+                            (assoc-in [:request :claims] claims))
                         (assoc ctx :error (ex-info "Unauthorized" {:type ::unauthorized
                                                                    ::status 403}))))
 
@@ -141,6 +142,7 @@
 (s/def ::is-superuser boolean?)
 (s/def ::is-active boolean?)
 (s/def ::password string?)
+(s/def ::full-name string?)
 
 (defmethod route-handler :users [_]
   {:muuntaja (m/create muuntaja-opts)
@@ -148,19 +150,32 @@
    :get {:interceptors [(authenticate-interceptor true)]
          :summary "Read users"
          :handler (fn [{:keys [conn] :as _req}]
-                    (let [data (jdbc/execute! conn ["SELECT id, email, is_superuser, is_active FROM users"])]
+                    (let [data (jdbc/execute! conn ["SELECT id, email, is_superuser, is_active, full_name FROM users"])]
                       {:status 200, :body {:data data :count (count data)}}))}
 
    :post {:interceptors [(authenticate-interceptor true)]
           :summary "Create user"
           :parameters {:body (s/keys :req-un [::email ::password]
-                                     :opt-un [::is-superuser ::is-active])}
+                                     :opt-un [::is-superuser ::is-active ::full-name])}
           :handler (fn [{:keys [parameters conn] :as _req}]
                      (let [{:keys [password] :as body} (:body parameters)]
                        {:status 200, :body (-> (sql/insert! conn :users (-> body
                                                                             (assoc :hashed-password (auth/encrypt-pw password))
                                                                             (dissoc :password)))
                                                (dissoc :hashed-password))}))}})
+
+(defmethod route-handler :users-me [_]
+  {:muuntaja (m/create muuntaja-opts)
+
+   :get {:interceptors [(authenticate-interceptor false)]
+         :summary "Get current user"
+         :description "Returns the current user information based on JWT token"
+         :handler (fn [{:keys [claims conn] :as _req}]
+                    (let [{:keys [id]} claims
+                          user (jdbc/execute-one! conn ["SELECT id, email, is_superuser, is_active, full_name FROM users WHERE id = ?" id])]
+                      (if user
+                        {:status 200, :body user}
+                        {:status 404, :body {:message "User not found"}})))}})
 
 (defmethod route-handler :swagger-json [_]
   {:muuntaja (m/create muuntaja-opts)
@@ -176,11 +191,10 @@
   {:muuntaja (m/create muuntaja-opts)
    :get {:handler (openapi/create-openapi-handler)}})
 
-
 (defn- default-handler [^Throwable t _]
   {:status 500, :body {:class (.getName (.getClass t))
                        :message (.getMessage t)
-                       :stringified (.toString t)} })
+                       :stringified (.toString t)}})
 
 (defn coercion-error-handler [status]
   (let [printer (expound/custom-printer {:theme :figwheel-theme, :print-specs? false})
@@ -224,7 +238,6 @@
 (defn- with-opts [opts]
   {:enter (fn [ctx]
             (update ctx :request into opts))})
-
 
 (defn handler [{:keys [conn] :as extra-opts}]
   ;; (assert conn "db-conn is missing!!")
