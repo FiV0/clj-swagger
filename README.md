@@ -1,26 +1,20 @@
 # clj-swagger
 
-Starting a repl
+Starting a CLJ Repl
 ```sh
 clj -M:dev:nrepl
 ```
-Starting the clojure-mcp server
-```sh
-PORT=$(cat .nrepl-port 2>/dev/null); clojure -X:mcp :port $PORT
+
+Starting a CLJS Repl
+```
+cd frontend
+npm install
+npx shadow-cljs watch app
 ```
 
-Executing the program can either be done via
+Starting the clojure-mcp server
 ```sh
-clj -M -m main :arg1 :arg2
-```
-or by compiling a jar via
-```sh
-clj -T:build clean
-clj -T:build jar
-```
-and executing it via
-```sh
-java -jar target/lib-0.1.4.jar :arg1 :arg2
+PORT=$(cat .nrepl-port 2>/dev/null); clojure -X:mcp :port $PORT :shadow-port 7889 :shadow-build "app"
 ```
 
 ### Testing
