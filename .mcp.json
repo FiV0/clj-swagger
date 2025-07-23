@@ -6,6 +6,12 @@
         "-c",
         "PORT=$(cat .nrepl-port 2>/dev/null); clojure -X:mcp :port $PORT :shadow-port 7889 :shadow-build \"app\""
       ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
     }
   }
 }
