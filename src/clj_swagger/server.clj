@@ -55,6 +55,12 @@
     ["/users/me" {:name :users-me
                   :swagger {:security [{"auth" []}]}}]
 
+    ["/items" {:name :items
+               :swagger {:security [{"auth" []}]}}]
+
+    ["/items/:id" {:name :items-by-id
+                   :swagger {:security [{"auth" []}]}}]
+
     #_["/get-with-param/:id" {:name :get-with-param
                               :summary "Get request with parameter"
                               :description "A GET request with path and query parameters"}]]
@@ -149,6 +155,16 @@
                       :opt-un [::full-name]))
 (s/def ::user-update (s/keys :opt-un [::email ::full-name]))
 
+(s/def ::title string?)
+(s/def ::description string?)
+(s/def ::item (s/keys :req-un [::id ::title]
+                      :opt-un [::description]))
+(s/def ::count int?)
+(s/def ::items-response (s/keys :req-un [::data ::count]))
+(s/def ::data (s/coll-of ::item))
+(s/def ::item-input (s/keys :req-un [::title]
+                            :opt-un [::description]))
+
 (defmethod route-handler :users [_]
   {:muuntaja (m/create muuntaja-opts)
 
@@ -202,6 +218,61 @@
                             (let [user (jdbc/execute-one! conn ["SELECT id, email, is_superuser, is_active, full_name FROM users WHERE id = ?" id])]
                               {:status 200, :body user})
                             {:status 404, :body {:message "User not found"}}))))}})
+
+(defmethod route-handler :items [_]
+  {:muuntaja (m/create muuntaja-opts)
+
+   :get {:interceptors [(authenticate-interceptor false)]
+         :summary "Get all items"
+         :description "Returns all items"
+         :responses {200 {:body ::items-response}
+                     401 {:description "Authentication failed"}}
+         :handler (fn [{:keys [conn] :as _req}]
+                    (let [data (jdbc/execute! conn ["SELECT id, title, description FROM items"])]
+                      {:status 200, :body {:data data :count (count data)}}))}
+
+   :post {:interceptors [(authenticate-interceptor false)]
+          :summary "Create item"
+          :description "Creates a new item with auto-generated ID"
+          :parameters {:body ::item-input}
+          :responses {201 {:body ::item}
+                      400 {:description "Invalid input"}
+                      401 {:description "Authentication failed"}}
+          :handler (fn [{:keys [parameters conn] :as _req}]
+                     (let [item-data (:body parameters)
+                           created-item (sql/insert! conn :items item-data)]
+                       {:status 201, :body (first created-item)}))}})
+
+(defmethod route-handler :items-by-id [_]
+  {:muuntaja (m/create muuntaja-opts)
+
+   :get {:interceptors [(authenticate-interceptor false)]
+         :summary "Get item by ID"
+         :description "Returns a single item by ID"
+         :parameters {:path (s/keys :req-un [::id])}
+         :responses {200 {:body ::item}
+                     401 {:description "Authentication failed"}
+                     404 {:description "Item not found"}}
+         :handler (fn [{:keys [parameters conn] :as _req}]
+                    (let [id (-> parameters :path :id)
+                          item (jdbc/execute-one! conn ["SELECT id, title, description FROM items WHERE id = ?" id])]
+                      (if item
+                        {:status 200, :body item}
+                        {:status 404, :body {:message "Item not found"}})))}
+
+   :delete {:interceptors [(authenticate-interceptor false)]
+            :summary "Delete item by ID"
+            :description "Deletes a single item by ID"
+            :parameters {:path (s/keys :req-un [::id])}
+            :responses {204 {:description "Item deleted successfully"}
+                        401 {:description "Authentication failed"}
+                        404 {:description "Item not found"}}
+            :handler (fn [{:keys [parameters conn] :as _req}]
+                       (let [id (-> parameters :path :id)
+                             result (sql/delete! conn :items {:id id})]
+                         (if result
+                           {:status 204}
+                           {:status 404, :body {:message "Item not found"}})))}})
 
 (defmethod route-handler :swagger-json [_]
   {:muuntaja (m/create muuntaja-opts)
