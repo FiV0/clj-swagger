@@ -19,6 +19,7 @@
 (def config {:clj-swagger.server/server {:port 8081 :dev-mode? true}
              :clj-swagger/postgres {:dbtype "postgresql"
                                     :dbname "clj-swagger"
+                                    :port 5431
                                     :user "postgres"
                                     :password "changethis"
                                     :first-admin-email "admin@example.com"
