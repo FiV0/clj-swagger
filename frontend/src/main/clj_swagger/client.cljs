@@ -16,7 +16,7 @@
 
 (defn app []
   [:div
-   [:h1 "ClojureScript Swagger Client"]
+   [:h1 "Hello from clj-swagger"]
    [:p "This is a simple ClojureScript application that uses Reagent for rendering."]])
 
 (defonce root (delay (rdomc/create-root (.getElementById js/document "app"))))
