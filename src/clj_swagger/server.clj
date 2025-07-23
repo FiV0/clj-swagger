@@ -144,6 +144,11 @@
 (s/def ::password string?)
 (s/def ::full-name string?)
 
+(s/def ::id int?)
+(s/def ::user (s/keys :req-un [::id ::email ::is-superuser ::is-active]
+                      :opt-un [::full-name]))
+(s/def ::user-update (s/keys :opt-un [::email ::full-name]))
+
 (defmethod route-handler :users [_]
   {:muuntaja (m/create muuntaja-opts)
 
@@ -170,12 +175,33 @@
    :get {:interceptors [(authenticate-interceptor false)]
          :summary "Get current user"
          :description "Returns the current user information based on JWT token"
+         :responses {200 {:body ::user}
+                     401 {:description "Authentication failed"}
+                     404 {:description "User not found"}}
          :handler (fn [{:keys [claims conn] :as _req}]
                     (let [{:keys [id]} claims
                           user (jdbc/execute-one! conn ["SELECT id, email, is_superuser, is_active, full_name FROM users WHERE id = ?" id])]
                       (if user
                         {:status 200, :body user}
-                        {:status 404, :body {:message "User not found"}})))}})
+                        {:status 404, :body {:message "User not found"}})))}
+
+   :patch {:interceptors [(authenticate-interceptor false)]
+           :summary "Update current user"
+           :description "Updates the current user's email and full name based on JWT token"
+           :parameters {:body ::user-update}
+           :responses {200 {:body ::user}
+                       400 {:description "Invalid input"}
+                       401 {:description "Authentication failed"}
+                       404 {:description "User not found"}}
+           :handler (fn [{:keys [claims parameters conn] :as _req}]
+                      (let [{:keys [id]} claims
+                            update-data (:body parameters)]
+                        (if (empty? update-data)
+                          {:status 400, :body {:message "No fields to update"}}
+                          (if-let [_updated-user (sql/update! conn :users (dissoc update-data :id) {:id id})]
+                            (let [user (jdbc/execute-one! conn ["SELECT id, email, is_superuser, is_active, full_name FROM users WHERE id = ?" id])]
+                              {:status 200, :body user})
+                            {:status 404, :body {:message "User not found"}}))))}})
 
 (defmethod route-handler :swagger-json [_]
   {:muuntaja (m/create muuntaja-opts)
