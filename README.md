@@ -1,5 +1,10 @@
 # clj-swagger
 
+Starting postgres
+```sh
+docker compose up db -d
+```
+
 Starting a CLJ Repl
 ```sh
 clj -M:dev:nrepl
